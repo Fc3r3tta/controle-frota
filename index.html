@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Manutenção">
+<title>Controle de Manutenção</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f2f5; min-height: 100vh; }
+
+  .app { max-width: 480px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; background: #f0f2f5; }
+
+  /* TOPBAR */
+  .topbar { background: #1a2332; color: #fff; padding: 16px 18px 14px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 10; }
+  .topbar-left h1 { font-size: 16px; font-weight: 600; letter-spacing: 0.01em; }
+  .topbar-left p { font-size: 11px; color: #8899bb; margin-top: 2px; }
+  .topbar-date { font-size: 11px; color: #8899bb; background: rgba(255,255,255,0.08); padding: 4px 10px; border-radius: 20px; }
+
+  /* TABS */
+  .tabs { display: flex; background: #fff; border-bottom: 1px solid #e8eaed; position: sticky; top: 56px; z-index: 9; }
+  .tab { flex: 1; padding: 12px 0; font-size: 13px; font-weight: 500; text-align: center; cursor: pointer; color: #888; border-bottom: 2px solid transparent; transition: all 0.15s; }
+  .tab.active { color: #1a2332; border-bottom-color: #1a2332; }
+
+  /* SECTIONS */
+  .section { display: none; padding: 14px; flex: 1; }
+  .section.active { display: block; }
+
+  /* SUMMARY CARDS */
+  .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px; }
+  .s-card { background: #fff; border-radius: 12px; padding: 12px 14px; }
+  .s-card-label { font-size: 11px; color: #888; margin-bottom: 4px; }
+  .s-card-val { font-size: 24px; font-weight: 600; color: #1a2332; }
+  .s-card-val.red { color: #c0392b; }
+  .s-card-val.amber { color: #d68910; }
+  .s-card-val.green { color: #1e8449; }
+
+  /* MACHINE CARDS */
+  .m-card { background: #fff; border-radius: 12px; margin-bottom: 10px; overflow: hidden; }
+  .m-card-header { padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
+  .m-card-name { font-size: 14px; font-weight: 600; color: #1a2332; }
+  .m-card-sub { font-size: 12px; color: #888; margin-top: 2px; }
+  .badge { font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 20px; white-space: nowrap; }
+  .badge-ok { background: #eafaf1; color: #1e8449; }
+  .badge-warn { background: #fef9e7; color: #d68910; }
+  .badge-alert { background: #fdedec; color: #c0392b; }
+
+  .m-items { display: none; border-top: 1px solid #f0f2f5; }
+  .m-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid #f5f5f5; }
+  .m-item:last-child { border-bottom: none; }
+  .m-item-name { font-size: 13px; color: #1a2332; }
+  .m-item-sub { font-size: 11px; color: #888; margin-top: 2px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .dot-ok { background: #1e8449; }
+  .dot-warn { background: #f39c12; }
+  .dot-alert { background: #c0392b; }
+
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #666; }
+
+  /* ALERTAS */
+  .alert-item { background: #fff; border-radius: 12px; margin-bottom: 10px; padding: 12px 14px; border-left: 4px solid #c0392b; }
+  .alert-item.warn { border-left-color: #f39c12; }
+  .alert-item-title { font-size: 13px; font-weight: 600; color: #1a2332; }
+  .alert-item-sub { font-size: 12px; color: #888; margin-top: 3px; }
+  .empty-state { text-align: center; padding: 3rem 1rem; color: #aaa; font-size: 14px; }
+  .empty-icon { font-size: 40px; margin-bottom: 12px; }
+
+  /* FORM */
+  .form-card { background: #fff; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+  .form-card h3 { font-size: 14px; font-weight: 600; color: #1a2332; margin-bottom: 14px; }
+  .form-group { margin-bottom: 14px; }
+  .form-label { font-size: 12px; color: #666; margin-bottom: 5px; display: block; font-weight: 500; }
+  select, input[type=number], input[type=text] {
+    width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px;
+    font-size: 14px; color: #1a2332; background: #fff; appearance: none;
+    -webkit-appearance: none; outline: none;
+  }
+  select:focus, input:focus { border-color: #1a2332; }
+  .check-list { border: 1px solid #eee; border-radius: 8px; overflow: hidden; }
+  .check-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid #f5f5f5; cursor: pointer; }
+  .check-row:last-child { border-bottom: none; }
+  .check-row input[type=checkbox] { width: 18px; height: 18px; flex-shrink: 0; accent-color: #1a2332; }
+  .check-row label { font-size: 13px; color: #1a2332; cursor: pointer; flex: 1; }
+
+  textarea { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; color: #1a2332; resize: none; outline: none; font-family: inherit; }
+  textarea:focus { border-color: #1a2332; }
+
+  .btn { width: 100%; padding: 14px; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; border: none; transition: all 0.15s; }
+  .btn-primary { background: #1a2332; color: #fff; }
+  .btn-primary:active { opacity: 0.85; transform: scale(0.98); }
+  .btn-primary:disabled { background: #aaa; cursor: not-allowed; }
+
+  .success-msg { background: #eafaf1; color: #1e8449; border-radius: 10px; padding: 14px; font-size: 14px; text-align: center; margin-top: 10px; display: none; font-weight: 500; }
+  .error-msg { background: #fdedec; color: #c0392b; border-radius: 10px; padding: 14px; font-size: 14px; text-align: center; margin-top: 10px; display: none; font-weight: 500; }
+
+  /* CONFIG */
+  .config-info { background: #fff3cd; border-radius: 10px; padding: 14px; font-size: 13px; color: #856404; margin-bottom: 14px; line-height: 1.5; }
+  .config-info strong { display: block; margin-bottom: 4px; font-size: 14px; }
+  .config-input-wrap { background: #fff; border-radius: 12px; padding: 16px; }
+  .config-input-wrap label { font-size: 12px; color: #666; font-weight: 500; display: block; margin-bottom: 5px; }
+  .config-input-wrap input { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; }
+  .btn-secondary { background: #f0f2f5; color: #1a2332; margin-top: 10px; border: 1px solid #ddd; }
+
+  .setup-badge { display: inline-block; background: #fdedec; color: #c0392b; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 20px; margin-left: 8px; }
+  .setup-ok { background: #eafaf1; color: #1e8449; }
+
+  /* FROTA */
+  .frota-maquina { background: #fff; border-radius: 12px; margin-bottom: 10px; overflow: hidden; }
+  .frota-maquina-header { padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; background: #f8f9fa; border-bottom: 1px solid #eee; }
+  .frota-maquina-info { flex: 1; }
+  .frota-maquina-nome { font-size: 14px; font-weight: 600; color: #1a2332; }
+  .frota-maquina-sub { font-size: 11px; color: #888; margin-top: 2px; }
+  .frota-maquina-body { padding: 12px 14px; }
+  .frota-comp-row { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid #f5f5f5; font-size: 13px; color: #1a2332; }
+  .frota-comp-row:last-child { border-bottom: none; }
+  .frota-comp-info { flex: 1; }
+  .frota-comp-sub { font-size: 11px; color: #888; margin-top: 1px; }
+  .btn-icon { background: none; border: none; cursor: pointer; font-size: 16px; padding: 4px 6px; border-radius: 6px; transition: background 0.15s; }
+  .btn-icon:hover { background: #f0f2f5; }
+  .btn-icon.danger:hover { background: #fdedec; }
+  .btn-add-comp { background: #f0f2f5; border: 1px dashed #ccc; border-radius: 8px; width: 100%; padding: 9px; font-size: 13px; color: #666; cursor: pointer; margin-top: 8px; text-align: center; }
+  .btn-add-comp:hover { background: #e8eaed; }
+  .frota-add-form { background: #f8f9fa; border-radius: 8px; padding: 12px; margin-top: 8px; display: none; }
+  .frota-add-form.open { display: block; }
+  .frota-add-form .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+  .frota-add-form .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+  .frota-add-form input, .frota-add-form select { font-size: 13px; padding: 8px 10px; }
+  .frota-add-form .btn-row { display: flex; gap: 8px; }
+  .frota-add-form .btn-row button { flex: 1; padding: 9px; font-size: 13px; font-weight: 600; border-radius: 8px; border: none; cursor: pointer; }
+  .frota-add-form .btn-row .confirm { background: #1a2332; color: #fff; }
+  .frota-add-form .btn-row .cancel { background: #f0f2f5; color: #1a2332; border: 1px solid #ddd; }
+  .frota-section-title { font-size: 13px; font-weight: 600; color: #666; margin: 14px 0 8px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .nova-maquina-card { background: #fff; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+  .nova-maquina-card h4 { font-size: 13px; font-weight: 600; color: #1a2332; margin-bottom: 12px; }
+  .nova-maquina-card .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+  .nova-maquina-card .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+  .nova-maquina-card input, .nova-maquina-card select { font-size: 13px; padding: 8px 10px; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="topbar">
+    <div class="topbar-left">
+      <h1>Controle de Manutenção</h1>
+      <p id="empresa-nome">Terraplanagem</p>
+    </div>
+    <div class="topbar-date" id="topbar-date"></div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="showTab('painel')">Painel</div>
+    <div class="tab" onclick="showTab('alertas')">Alertas <span id="alert-count-badge"></span></div>
+    <div class="tab" onclick="showTab('registro')">Registro</div>
+    <div class="tab" onclick="showTab('frota')">Frota</div>
+    <div class="tab" onclick="showTab('config')">Config</div>
+  </div>
+
+  <!-- PAINEL -->
+  <div id="painel" class="section active">
+    <div class="summary-grid">
+      <div class="s-card"><div class="s-card-label">Equipamentos</div><div class="s-card-val" id="total-eq">—</div></div>
+      <div class="s-card"><div class="s-card-label">Pendentes</div><div class="s-card-val red" id="total-alert">—</div></div>
+      <div class="s-card"><div class="s-card-label">Atenção</div><div class="s-card-val amber" id="total-warn">—</div></div>
+      <div class="s-card"><div class="s-card-label">Em dia</div><div class="s-card-val green" id="total-ok">—</div></div>
+    </div>
+    <div class="legend">
+      <div class="legend-item"><div class="dot dot-ok"></div> Em dia</div>
+      <div class="legend-item"><div class="dot dot-warn"></div> Atenção (&lt;15%)</div>
+      <div class="legend-item"><div class="dot dot-alert"></div> Pendente (vencido)</div>
+    </div>
+    <div id="painel-list"></div>
+  </div>
+
+  <!-- ALERTAS -->
+  <div id="alertas" class="section">
+    <div id="alertas-list"></div>
+  </div>
+
+  <!-- REGISTRO -->
+  <div id="registro" class="section">
+    <div class="form-card">
+      <h3>Registrar manutenção</h3>
+      <div class="form-group">
+        <label class="form-label">Equipamento</label>
+        <select id="reg-maquina" onchange="atualizarFormulario()"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" id="reg-medida-label">Quilometragem atual (km)</label>
+        <input type="number" id="reg-medida" placeholder="Ex: 87500">
+      </div>
+      <div class="form-group">
+        <label class="form-label">O que foi feito? (marque tudo que se aplica)</label>
+        <div class="check-list" id="reg-checks"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Mecânico responsável</label>
+        <input type="text" id="reg-mecanico" placeholder="Ex: João Silva">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Valor da manutenção (R$)</label>
+        <input type="number" id="reg-valor" placeholder="Ex: 350,00" min="0" step="0.01">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Observações (opcional)</label>
+        <textarea id="reg-obs" rows="3" placeholder="Ex: barulho no motor, verificar freios..."></textarea>
+      </div>
+      <button class="btn btn-primary" onclick="salvarRegistro()" id="btn-salvar">Salvar registro</button>
+      <div class="success-msg" id="success-msg">✓ Registro salvo com sucesso!</div>
+      <div class="error-msg" id="error-msg">⚠ Erro ao salvar. Verifique a configuração do Google Sheets.</div>
+    </div>
+  </div>
+
+  <!-- FROTA -->
+  <div id="frota" class="section">
+    <div class="frota-section-title">Equipamentos cadastrados</div>
+    <div id="frota-list"></div>
+
+    <div class="frota-section-title" style="margin-top:18px;">Adicionar novo equipamento</div>
+    <div class="nova-maquina-card">
+      <h4>Dados do equipamento</h4>
+      <div class="form-group">
+        <label class="form-label">Nome</label>
+        <input type="text" id="nm-nome" placeholder="Ex: Caminhão VW 05">
+      </div>
+      <div class="row">
+        <div>
+          <label class="form-label">Tipo</label>
+          <select id="nm-tipo">
+            <option value="caminhao">Caminhão</option>
+            <option value="maquina">Máquina</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Medida</label>
+          <select id="nm-medida">
+            <option value="km">Quilômetros (km)</option>
+            <option value="horas">Horímetro (h)</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Valor atual (km ou horas)</label>
+        <input type="number" id="nm-atual" placeholder="Ex: 87500">
+      </div>
+      <button class="btn btn-primary" onclick="adicionarMaquina()">+ Adicionar equipamento</button>
+    </div>
+  </div>
+
+  <!-- CONFIG -->
+  <div id="config" class="section">
+    <div class="config-info">
+      <strong>⚙ Como conectar ao Google Sheets</strong>
+      Cole abaixo a URL do seu Google Apps Script. Veja o guia de configuração para criar essa URL.
+    </div>
+    <div class="config-input-wrap">
+      <label>URL do Google Apps Script <span id="script-status" class="setup-badge">não configurado</span></label>
+      <input type="text" id="script-url-input" placeholder="https://script.google.com/macros/s/...">
+      <button class="btn btn-primary" onclick="salvarConfig()" style="margin-top:10px;">Salvar configuração</button>
+      <button class="btn btn-secondary" onclick="testarConexao()">Testar conexão</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// =============================================
+// DADOS PADRÃO
+// =============================================
+const DADOS_PADRAO = [
+  {
+    id: 1, nome: "Caminhão VW 01", tipo: "caminhao", medida: "km", atual: 87500,
+    componentes: [
+      { nome: "Óleo do motor",        intervalo: 10000, ultimo: 80000 },
+      { nome: "Óleo da caixa",        intervalo: 40000, ultimo: 60000 },
+      { nome: "Óleo do diferencial",  intervalo: 40000, ultimo: 85000 },
+      { nome: "Filtro de ar",         intervalo: 20000, ultimo: 75000 },
+      { nome: "Filtro de combustível",intervalo: 15000, ultimo: 80000 },
+    ]
+  },
+  {
+    id: 2, nome: "Caminhão MB 02", tipo: "caminhao", medida: "km", atual: 143200,
+    componentes: [
+      { nome: "Óleo do motor",        intervalo: 10000, ultimo: 140000 },
+      { nome: "Óleo da caixa",        intervalo: 40000, ultimo: 120000 },
+      { nome: "Óleo do diferencial",  intervalo: 40000, ultimo: 130000 },
+      { nome: "Filtro de ar",         intervalo: 20000, ultimo: 135000 },
+      { nome: "Filtro de combustível",intervalo: 15000, ultimo: 142000 },
+    ]
+  },
+  {
+    id: 3, nome: "Escavadeira CAT 01", tipo: "maquina", medida: "horas", atual: 4820,
+    componentes: [
+      { nome: "Óleo do motor",    intervalo: 250,  ultimo: 4600 },
+      { nome: "Óleo hidráulico",  intervalo: 1000, ultimo: 4000 },
+      { nome: "Óleo do giro",     intervalo: 500,  ultimo: 4500 },
+      { nome: "Filtro hidráulico",intervalo: 500,  ultimo: 4700 },
+      { nome: "Filtro de ar",     intervalo: 250,  ultimo: 4750 },
+    ]
+  },
+  {
+    id: 4, nome: "Motoniveladora 01", tipo: "maquina", medida: "horas", atual: 2310,
+    componentes: [
+      { nome: "Óleo do motor",   intervalo: 250,  ultimo: 2250 },
+      { nome: "Óleo hidráulico", intervalo: 1000, ultimo: 2000 },
+      { nome: "Óleo do giro",    intervalo: 500,  ultimo: 2100 },
+      { nome: "Filtro de ar",    intervalo: 250,  ultimo: 2310 },
+    ]
+  },
+  {
+    id: 5, nome: "Caminhão Ford 03", tipo: "caminhao", medida: "km", atual: 62100,
+    componentes: [
+      { nome: "Óleo do motor",   intervalo: 10000, ultimo: 58000 },
+      { nome: "Óleo da caixa",   intervalo: 40000, ultimo: 40000 },
+      { nome: "Filtro de ar",    intervalo: 20000, ultimo: 55000 },
+    ]
+  },
+  {
+    id: 6, nome: "Pá Carregadeira 01", tipo: "maquina", medida: "horas", atual: 1890,
+    componentes: [
+      { nome: "Óleo do motor",    intervalo: 250,  ultimo: 1750 },
+      { nome: "Óleo hidráulico",  intervalo: 1000, ultimo: 1000 },
+      { nome: "Filtro hidráulico",intervalo: 500,  ultimo: 1500 },
+      { nome: "Filtro de ar",     intervalo: 250,  ultimo: 1870 },
+    ]
+  },
+  {
+    id: 7, nome: "Retroescavadeira 01", tipo: "maquina", medida: "horas", atual: 980,
+    componentes: [
+      { nome: "Óleo do motor",   intervalo: 250,  ultimo: 900 },
+      { nome: "Óleo hidráulico", intervalo: 1000, ultimo: 500 },
+      { nome: "Filtro de ar",    intervalo: 250,  ultimo: 960 },
+    ]
+  },
+  {
+    id: 8, nome: "Caminhão Scania 04", tipo: "caminhao", medida: "km", atual: 210000,
+    componentes: [
+      { nome: "Óleo do motor",        intervalo: 10000, ultimo: 205000 },
+      { nome: "Óleo da caixa",        intervalo: 40000, ultimo: 200000 },
+      { nome: "Óleo do diferencial",  intervalo: 40000, ultimo: 190000 },
+      { nome: "Filtro de combustível",intervalo: 15000, ultimo: 200000 },
+    ]
+  }
+];
+
+// =============================================
+// STORAGE
+// =============================================
+function carregarMaquinas() {
+  const salvo = localStorage.getItem('frota_maquinas');
+  if (salvo) {
+    try { return JSON.parse(salvo); } catch(e) {}
+  }
+  return JSON.parse(JSON.stringify(DADOS_PADRAO));
+}
+
+function salvarMaquinas() {
+  localStorage.setItem('frota_maquinas', JSON.stringify(maquinas));
+}
+
+let maquinas = carregarMaquinas();
+
+function proximoId() {
+  return maquinas.length > 0 ? Math.max(...maquinas.map(m => m.id)) + 1 : 1;
+}
+
+// =============================================
+// LÓGICA
+// =============================================
+function getStatus(atual, ultimo, intervalo) {
+  const restante = (ultimo + intervalo) - atual;
+  const pct = restante / intervalo;
+  if (restante <= 0) return 'alert';
+  if (pct <= 0.15) return 'warn';
+  return 'ok';
+}
+
+function getMaquinaStatus(m) {
+  const s = m.componentes.map(c => getStatus(m.atual, c.ultimo, c.intervalo));
+  if (s.includes('alert')) return 'alert';
+  if (s.includes('warn')) return 'warn';
+  return 'ok';
+}
+
+function showTab(id) {
+  const tabIds = ['painel','alertas','registro','frota','config'];
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    t.classList.toggle('active', tabIds[i] === id);
+  });
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if (id === 'frota') renderFrota();
+}
+
+// =============================================
+// PAINEL
+// =============================================
+function renderPainel() {
+  const now = new Date();
+  document.getElementById('topbar-date').textContent =
+    now.toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric' });
+
+  let alerts = 0, warns = 0, oks = 0;
+  maquinas.forEach(m => {
+    const s = getMaquinaStatus(m);
+    if (s === 'alert') alerts++;
+    else if (s === 'warn') warns++;
+    else oks++;
+  });
+
+  document.getElementById('total-eq').textContent = maquinas.length;
+  document.getElementById('total-alert').textContent = alerts;
+  document.getElementById('total-warn').textContent = warns;
+  document.getElementById('total-ok').textContent = oks;
+
+  const badge = document.getElementById('alert-count-badge');
+  const total = alerts + warns;
+  badge.textContent = total > 0 ? total : '';
+  badge.style.cssText = total > 0
+    ? 'background:#c0392b;color:#fff;border-radius:10px;font-size:10px;padding:1px 5px;font-weight:700;'
+    : '';
+
+  const list = document.getElementById('painel-list');
+  list.innerHTML = '';
+
+  maquinas.forEach(m => {
+    const st = getMaquinaStatus(m);
+    const unid = m.medida === 'km' ? 'km' : 'h';
+    const badgeCls = st === 'alert' ? 'badge-alert' : st === 'warn' ? 'badge-warn' : 'badge-ok';
+    const badgeTxt = st === 'alert' ? 'Pendente' : st === 'warn' ? 'Atenção' : 'Em dia';
+
+    const itemsHtml = m.componentes.map(c => {
+      const s = getStatus(m.atual, c.ultimo, c.intervalo);
+      const prox = c.ultimo + c.intervalo;
+      const restante = prox - m.atual;
+      const dotCls = s === 'alert' ? 'dot-alert' : s === 'warn' ? 'dot-warn' : 'dot-ok';
+      const info = s === 'alert'
+        ? `Vencido há ${Math.abs(restante).toLocaleString('pt-BR')} ${unid}`
+        : `Próxima em ${restante.toLocaleString('pt-BR')} ${unid} · na marca ${prox.toLocaleString('pt-BR')} ${unid}`;
+      return `<div class="m-item">
+        <div>
+          <div class="m-item-name">${c.nome}</div>
+          <div class="m-item-sub">${info}</div>
+        </div>
+        <div class="dot ${dotCls}"></div>
+      </div>`;
+    }).join('');
+
+    const card = document.createElement('div');
+    card.className = 'm-card';
+    card.innerHTML = `
+      <div class="m-card-header" onclick="toggleCard(this)">
+        <div>
+          <div class="m-card-name">${m.nome}</div>
+          <div class="m-card-sub">${m.medida === 'km' ? 'Km atual' : 'Horímetro'}: ${m.atual.toLocaleString('pt-BR')} ${unid}</div>
+        </div>
+        <span class="badge ${badgeCls}">${badgeTxt}</span>
+      </div>
+      <div class="m-items">${itemsHtml}</div>`;
+    list.appendChild(card);
+  });
+}
+
+function toggleCard(header) {
+  const items = header.nextElementSibling;
+  items.style.display = items.style.display === 'block' ? 'none' : 'block';
+}
+
+// =============================================
+// ALERTAS
+// =============================================
+function renderAlertas() {
+  const list = document.getElementById('alertas-list');
+  list.innerHTML = '';
+  let found = false;
+
+  const pendentes = [], atencao = [];
+  maquinas.forEach(m => {
+    const unid = m.medida === 'km' ? 'km' : 'h';
+    m.componentes.forEach(c => {
+      const s = getStatus(m.atual, c.ultimo, c.intervalo);
+      if (s !== 'ok') {
+        const prox = c.ultimo + c.intervalo;
+        const restante = prox - m.atual;
+        const obj = { m, c, s, restante, unid };
+        if (s === 'alert') pendentes.push(obj);
+        else atencao.push(obj);
+      }
+    });
+  });
+
+  [...pendentes, ...atencao].forEach(({ m, c, s, restante, unid }) => {
+    found = true;
+    const div = document.createElement('div');
+    div.className = s === 'alert' ? 'alert-item' : 'alert-item warn';
+    div.innerHTML = `
+      <div class="alert-item-title">${m.nome} — ${c.nome}</div>
+      <div class="alert-item-sub">${s === 'alert'
+        ? `Vencido há ${Math.abs(restante).toLocaleString('pt-BR')} ${unid}`
+        : `Faltam ${restante.toLocaleString('pt-BR')} ${unid} para a próxima troca`}</div>`;
+    list.appendChild(div);
+  });
+
+  if (!found) {
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">✓</div>Tudo em dia! Nenhuma manutenção pendente.</div>`;
+  }
+}
+
+// =============================================
+// REGISTRO
+// =============================================
+function renderRegistro() {
+  const sel = document.getElementById('reg-maquina');
+  sel.innerHTML = maquinas.map(m => `<option value="${m.id}">${m.nome}</option>`).join('');
+  atualizarFormulario();
+}
+
+function atualizarFormulario() {
+  const id = parseInt(document.getElementById('reg-maquina').value);
+  const m = maquinas.find(x => x.id === id);
+  if (!m) return;
+  document.getElementById('reg-medida-label').textContent =
+    m.medida === 'km' ? 'Quilometragem atual (km)' : 'Horímetro atual (horas)';
+  document.getElementById('reg-checks').innerHTML = m.componentes.map(c =>
+    `<div class="check-row">
+      <input type="checkbox" id="chk-${c.nome.replace(/\s/g,'-')}" value="${c.nome}">
+      <label for="chk-${c.nome.replace(/\s/g,'-')}">${c.nome}</label>
+    </div>`).join('');
+}
+
+async function salvarRegistro() {
+  const btn = document.getElementById('btn-salvar');
+  const successEl = document.getElementById('success-msg');
+  const errorEl = document.getElementById('error-msg');
+  successEl.style.display = 'none';
+  errorEl.style.display = 'none';
+
+  const id = parseInt(document.getElementById('reg-maquina').value);
+  const m = maquinas.find(x => x.id === id);
+  const medida = document.getElementById('reg-medida').value;
+  const obs = document.getElementById('reg-obs').value;
+  const mecanico = document.getElementById('reg-mecanico').value.trim();
+  const valor = document.getElementById('reg-valor').value;
+  const feitos = [...document.querySelectorAll('#reg-checks input:checked')].map(x => x.value);
+
+  if (!medida) { alert('Informe a quilometragem ou horímetro.'); return; }
+
+  const scriptUrl = localStorage.getItem('sheets_script_url');
+
+  const payload = {
+    data: new Date().toLocaleDateString('pt-BR'),
+    hora: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+    maquina: m.nome,
+    medida_tipo: m.medida,
+    medida_valor: medida,
+    manutencoes: feitos.join(', ') || 'Nenhuma marcada',
+    mecanico: mecanico || '',
+    valor_manutencao: valor ? parseFloat(valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '',
+    observacoes: obs || ''
+  };
+
+  if (!scriptUrl) {
+    atualizarDadosLocais(m, medida, feitos);
+    successEl.style.display = 'block';
+    successEl.textContent = '✓ Registro salvo localmente! (Configure o Google Sheets para backup na nuvem)';
+    limparFormulario();
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Salvando...';
+
+  try {
+    await fetch(scriptUrl, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    atualizarDadosLocais(m, medida, feitos);
+    successEl.style.display = 'block';
+    successEl.textContent = '✓ Registro salvo no Google Sheets!';
+    limparFormulario();
+  } catch (e) {
+    errorEl.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Salvar registro';
+  }
+}
+
+function atualizarDadosLocais(m, novaMediada, feitos) {
+  const maquina = maquinas.find(x => x.id === m.id);
+  maquina.atual = parseFloat(novaMediada);
+  feitos.forEach(nome => {
+    const comp = maquina.componentes.find(c => c.nome === nome);
+    if (comp) comp.ultimo = parseFloat(novaMediada);
+  });
+  salvarMaquinas();
+  renderPainel();
+  renderAlertas();
+}
+
+function limparFormulario() {
+  document.getElementById('reg-medida').value = '';
+  document.getElementById('reg-mecanico').value = '';
+  document.getElementById('reg-valor').value = '';
+  document.getElementById('reg-obs').value = '';
+  document.querySelectorAll('#reg-checks input').forEach(c => c.checked = false);
+}
+
+// =============================================
+// FROTA
+// =============================================
+function renderFrota() {
+  const list = document.getElementById('frota-list');
+  list.innerHTML = '';
+
+  if (maquinas.length === 0) {
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">🚜</div>Nenhum equipamento cadastrado.</div>`;
+    return;
+  }
+
+  maquinas.forEach(m => {
+    const unid = m.medida === 'km' ? 'km' : 'h';
+    const div = document.createElement('div');
+    div.className = 'frota-maquina';
+    div.id = `frota-m-${m.id}`;
+
+    const compsHtml = m.componentes.map((c, ci) => `
+      <div class="frota-comp-row" id="frota-comp-${m.id}-${ci}">
+        <div class="frota-comp-info">
+          <div>${c.nome}</div>
+          <div class="frota-comp-sub">Intervalo: ${c.intervalo.toLocaleString('pt-BR')} ${unid} · Última troca: ${c.ultimo.toLocaleString('pt-BR')} ${unid}</div>
+        </div>
+        <button class="btn-icon danger" onclick="removerComponente(${m.id}, ${ci})" title="Remover componente">🗑</button>
+      </div>`).join('');
+
+    div.innerHTML = `
+      <div class="frota-maquina-header">
+        <div class="frota-maquina-info">
+          <div class="frota-maquina-nome">${m.nome}</div>
+          <div class="frota-maquina-sub">${m.medida === 'km' ? 'Km' : 'Horímetro'}: ${m.atual.toLocaleString('pt-BR')} ${unid} · ${m.tipo}</div>
+        </div>
+        <button class="btn-icon danger" onclick="removerMaquina(${m.id})" title="Remover equipamento">🗑</button>
+      </div>
+      <div class="frota-maquina-body">
+        <div id="comps-${m.id}">${compsHtml}</div>
+        <button class="btn-add-comp" onclick="toggleAddComp(${m.id})">+ Adicionar componente</button>
+        <div class="frota-add-form" id="add-comp-form-${m.id}">
+          <div class="form-label" style="margin-bottom:8px;font-weight:600;">Novo componente</div>
+          <div class="form-group">
+            <label class="form-label">Nome do componente</label>
+            <input type="text" id="nc-nome-${m.id}" placeholder="Ex: Óleo do motor">
+          </div>
+          <div class="row">
+            <div>
+              <label class="form-label">Intervalo (${unid})</label>
+              <input type="number" id="nc-intervalo-${m.id}" placeholder="Ex: 10000">
+            </div>
+            <div>
+              <label class="form-label">Última troca (${unid})</label>
+              <input type="number" id="nc-ultimo-${m.id}" placeholder="Ex: 80000">
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="confirm" onclick="confirmarAddComp(${m.id})">Adicionar</button>
+            <button class="cancel" onclick="toggleAddComp(${m.id})">Cancelar</button>
+          </div>
+        </div>
+      </div>`;
+    list.appendChild(div);
+  });
+}
+
+function toggleAddComp(mId) {
+  const form = document.getElementById(`add-comp-form-${mId}`);
+  form.classList.toggle('open');
+}
+
+function confirmarAddComp(mId) {
+  const nome = document.getElementById(`nc-nome-${mId}`).value.trim();
+  const intervalo = parseFloat(document.getElementById(`nc-intervalo-${mId}`).value);
+  const ultimo = parseFloat(document.getElementById(`nc-ultimo-${mId}`).value);
+
+  if (!nome) { alert('Informe o nome do componente.'); return; }
+  if (!intervalo || intervalo <= 0) { alert('Informe um intervalo válido.'); return; }
+  if (isNaN(ultimo)) { alert('Informe o valor da última troca.'); return; }
+
+  const m = maquinas.find(x => x.id === mId);
+  m.componentes.push({ nome, intervalo, ultimo });
+  salvarMaquinas();
+  renderFrota();
+  renderPainel();
+  renderAlertas();
+  renderRegistro();
+}
+
+function removerComponente(mId, ci) {
+  const m = maquinas.find(x => x.id === mId);
+  if (!confirm(`Remover componente "${m.componentes[ci].nome}"?`)) return;
+  m.componentes.splice(ci, 1);
+  salvarMaquinas();
+  renderFrota();
+  renderPainel();
+  renderAlertas();
+  renderRegistro();
+}
+
+function removerMaquina(mId) {
+  const m = maquinas.find(x => x.id === mId);
+  if (!confirm(`Remover equipamento "${m.nome}" e todos os seus componentes?`)) return;
+  maquinas = maquinas.filter(x => x.id !== mId);
+  salvarMaquinas();
+  renderFrota();
+  renderPainel();
+  renderAlertas();
+  renderRegistro();
+}
+
+function adicionarMaquina() {
+  const nome = document.getElementById('nm-nome').value.trim();
+  const tipo = document.getElementById('nm-tipo').value;
+  const medida = document.getElementById('nm-medida').value;
+  const atual = parseFloat(document.getElementById('nm-atual').value);
+
+  if (!nome) { alert('Informe o nome do equipamento.'); return; }
+  if (isNaN(atual) || atual < 0) { alert('Informe o valor atual válido.'); return; }
+
+  maquinas.push({ id: proximoId(), nome, tipo, medida, atual, componentes: [] });
+  salvarMaquinas();
+
+  document.getElementById('nm-nome').value = '';
+  document.getElementById('nm-atual').value = '';
+
+  renderFrota();
+  renderPainel();
+  renderAlertas();
+  renderRegistro();
+}
+
+// =============================================
+// CONFIG
+// =============================================
+function renderConfig() {
+  const url = localStorage.getItem('sheets_script_url') || '';
+  document.getElementById('script-url-input').value = url;
+  const badge = document.getElementById('script-status');
+  if (url) { badge.textContent = 'configurado'; badge.className = 'setup-badge setup-ok'; }
+  else { badge.textContent = 'não configurado'; badge.className = 'setup-badge'; }
+}
+
+function salvarConfig() {
+  const url = document.getElementById('script-url-input').value.trim();
+  localStorage.setItem('sheets_script_url', url);
+  renderConfig();
+  alert('Configuração salva!');
+}
+
+async function testarConexao() {
+  const url = document.getElementById('script-url-input').value.trim();
+  if (!url) { alert('Cole a URL do Apps Script primeiro.'); return; }
+  try {
+    await fetch(url, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ teste: true }) });
+    alert('✓ Conexão OK! O Apps Script está respondendo.');
+  } catch (e) {
+    alert('⚠ Erro na conexão. Verifique a URL.');
+  }
+}
+
+// =============================================
+// INIT
+// =============================================
+renderPainel();
+renderAlertas();
+renderRegistro();
+renderConfig();
+</script>
+</body>
+</html>
